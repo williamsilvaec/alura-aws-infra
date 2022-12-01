@@ -1,9 +1,7 @@
 package com.myorg;
 
-import software.amazon.awscdk.Fn;
-import software.amazon.awscdk.RemovalPolicy;
-import software.amazon.awscdk.Stack;
-import software.amazon.awscdk.StackProps;
+import software.amazon.awscdk.*;
+import software.amazon.awscdk.services.applicationautoscaling.EnableScalingProps;
 import software.amazon.awscdk.services.ecr.IRepository;
 import software.amazon.awscdk.services.ecr.Repository;
 import software.amazon.awscdk.services.ecs.*;
@@ -35,7 +33,7 @@ public class AluraServiceStack extends Stack {
         //Repository.fromRepositoryName(scope: this, id: "repositorio", repositoryName: "img-pedidos-ms");
 
         // Create a load-balanced Fargate service and make it public
-        ApplicationLoadBalancedFargateService.Builder.create(this, "AluraService")
+        ApplicationLoadBalancedFargateService fargateService = ApplicationLoadBalancedFargateService.Builder.create(this, "AluraService")
                 .serviceName("alura-service-ola")
                 .cluster(cluster)           // Required
                 .cpu(512)                   // Default is 256
@@ -61,5 +59,22 @@ public class AluraServiceStack extends Stack {
                 .memoryLimitMiB(1024)       // Default is 512
                 .publicLoadBalancer(true)   // Default is false
                 .build();
+
+        ScalableTaskCount scalableTarget = fargateService.getService().autoScaleTaskCount(EnableScalingProps.builder()
+                .minCapacity(1)
+                .maxCapacity(20)
+                .build());
+
+        scalableTarget.scaleOnCpuUtilization("CpuScaling", CpuUtilizationScalingProps.builder()
+                .targetUtilizationPercent(50)
+                .scaleInCooldown(Duration.minutes(5))
+                .scaleOutCooldown(Duration.minutes(3))
+                .build());
+
+        scalableTarget.scaleOnMemoryUtilization("MemoryScaling", MemoryUtilizationScalingProps.builder()
+                .targetUtilizationPercent(50)
+                .scaleInCooldown(Duration.minutes(3))
+                .scaleOutCooldown(Duration.minutes(2))
+                .build());
     }
 }
